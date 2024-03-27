@@ -1,5 +1,4 @@
 import argparse
-from typing import Set
 from typing import List
 from typing import Union
 from typing import Tuple
@@ -39,155 +38,89 @@ class Clause:
         return type(self) == type(other) and set(self.literals) == set(other.literals)
 
     def __repr__(self) -> str:
-        result = ''
-        for literal in self.literals:
-            result += str(literal) + ' '
-        return result
+        return ''.join([str(literal) + ' ' for literal in self.literals])
 
     def __hash__(self) -> int:
-        return hash(self.__repr__())
+        # My hash needs to be the same for things that contain same literals...
+        return hash(frozenset(self.literals))
 
 class KnowledgeBase:
-    def __init__(self, clauses: List[Clause]):
+    def __init__(self, clauses: List[Clause]) -> None:
         self.clauses = clauses
+        self.clause_set = set(clauses)
+        self.LINE_NUMBER = 1
 
-        global LINE_NUMBER
         for clause in clauses:
-            print(f'{LINE_NUMBER}. {clause}{{}}')
-            LINE_NUMBER += 1
+            print(f'{self.LINE_NUMBER}. {clause}{{}}')
+            self.LINE_NUMBER += 1
         
     def resolution_principle_algorithm(self, theorem: Clause) -> None:
-        # 1 negate the theorm and add each literal to set of valid clauses
         for literal in theorem.get_negation():
             new_clause = Clause()
             new_clause.literals.append(literal)
             if not self.is_redundant_clause(new_clause):
-                global LINE_NUMBER
-                print(f'{LINE_NUMBER}. {new_clause}{{}}')
-                LINE_NUMBER += 1
+                print(f'{self.LINE_NUMBER}. {new_clause}{{}}')
+                self.LINE_NUMBER += 1
                 self.clauses.append(new_clause)
+                self.clause_set.add(new_clause)
 
-        # 2 While there still exists resolutable clauses ...
         i = 0
         while i < len(self.clauses):
             j = 0
             while j < i:
                 new_clause = self.attempt_resolution(self.clauses[i], self.clauses[j])
-
-                if new_clause == True:
-                    j += 1
-                    continue
-
                 if new_clause == False:
-                    print(f'{LINE_NUMBER}. Contradiction {{{i+1},{j+1}}}')
-                    print('valid')
+                    print(f'{self.LINE_NUMBER}. Contradiction {{{i+1}, {j+1}}}')
+                    print('Valid')
                     return
-
-                if not self.is_redundant_clause(new_clause):
-                    print(f'{LINE_NUMBER}. {new_clause}{{{i+1}, {j+1}}}')
-                    LINE_NUMBER += 1
+                elif not self.is_redundant_clause(new_clause):
+                    print(f'{self.LINE_NUMBER}. {new_clause}{{{i+1}, {j+1}}}')
+                    self.LINE_NUMBER += 1
                     self.clauses.append(new_clause)
+                    self.clause_set.add(new_clause)
                 j += 1
             i += 1
-        print('failure')
+        print('Fail')
         return
 
-    def is_redundant_clause(self, new_clause) -> bool:
-        for clause in self.clauses:
-            if new_clause == clause:
-                return True
-        return False
+    def is_redundant_clause(self, new_clause: Clause) -> bool:
+        if new_clause == False:
+            return False
+
+        if new_clause == None or new_clause == True:
+            return True
+
+        return new_clause in self.clause_set
     
-    def attempt_resolution(self, clause1: Clause, clause2: Clause) -> Union[bool | Clause]:
-        # if the clauses contain a same literal return True
-        # if the clauses contain an inverted pair can produce resolution
-        invertedPairsCount = 0
-        resolutionLiteral = None
+    def attempt_resolution(self, clause1: Clause, clause2: Clause) -> Union[Clause | bool | None]:
+        resolutionAtom = None
+        invertedPairs = 0
         for lit1 in clause1.literals:
             for lit2 in clause2.literals:
-                if lit1 == lit2:
-                    return True
-                if lit1.get_negation() == lit2:
-                    resolutionLiteral = lit1
-
-                    invertedPairsCount += 1
-                    if invertedPairsCount > 1:
-                        return True
-
-        if invertedPairsCount == 0:
+                if lit1.atom == lit2.atom and lit1.get_negation() == lit2:
+                    invertedPairs += 1
+                    resolutionAtom = lit1.atom
+        
+        if invertedPairs == 0:
+            return None
+        if invertedPairs > 1:
             return True
-            
-        if resolutionLiteral is None:
-            return True
-
         if len(clause1.literals) == 1 and len(clause2.literals) == 1:
             return False
         
+        resolution_set = set()
         resolution = Clause()
-        s1 = set(clause1.literals)
-        s2 = set(clause2.literals)
-        s = set.union(s1, s2)
-        s.remove(resolutionLiteral)
-        s.remove(resolutionLiteral.get_negation())
-            
-        resolution.literals = list(s)
+        for lit1 in clause1.literals:
+            if lit1.atom != resolutionAtom and lit1 not in resolution_set:
+                resolution.literals.append(lit1)
+                resolution_set.add(lit1)
+
+        for lit2 in clause2.literals:
+            if lit2.atom != resolutionAtom and lit2 not in resolution_set:
+                resolution.literals.append(lit2)
+                resolution_set.add(lit2)
+
         return resolution
-
-    # def attempt_resolution(self, clause1: Clause, clause2: Clause) -> Union[bool | Clause]:
-    #     # my code is so fucking slow I need to do it the ugly way :(
-    #     # hmmm let me try and optimize this code a bit
-    #     skip = True
-    #     for lit1 in clause1.literals:
-    #         for lit2 in clause2.literals:
-    #             if lit1.get_negation == lit2:
-    #                 skip = False
-    #                 break
-    #         if skip == False:
-    #             break
-
-    #     if not skip:
-    #         return True
-
-    #     lit1_set = set(clause1.literals)
-    #     lit2_set = set(clause2.literals)
-    #     inv1_set = set(clause1.get_negation())
-    #     inv2_set = set(clause2.get_negation())
-    #     inv_pairs = set.intersection(inv1_set, lit2_set)
-
-    #     ### new notes for optimization ###
-    #     # if there is any same pair return true
-    #     # if there is at least one pair with inverted literals then can perform resolution
-
-    #     # if the size of the two things are 1 
-
-
-    #     # non zero if resolution is possible
-    #     # greater than one is always true
-    #     if len(inv_pairs) == 0 or len(inv_pairs) > 1:
-    #         return True
-
-    #     if len(lit1_set) == 1 and len(lit2_set) == 1:
-    #         return False
-
-    #     s = set()
-    #     resolution = Clause()
-    #     for literal in clause1.literals:
-    #         if literal not in inv2_set: 
-    #             # resolution.literals.append(literal)
-    #             s.add(literal)
-
-    #     for literal in clause2.literals:
-    #         if literal not in inv1_set: 
-    #             # resolution.literals.append(literal)
-    #             s.add(literal)
-        
-        
-    #     resolution.literals = list(s)
-
-    #     if len(resolution.literals) == 0:
-    #         return True
-
-    #     return resolution
 
 def parse_KB(kb_path: str) -> Tuple[List[Clause], Clause]:
     clauses = list()
@@ -215,10 +148,10 @@ def parse_KB(kb_path: str) -> Tuple[List[Clause], Clause]:
     return (clauses, theorem)
 
 def main(kb_path: str) -> None:
-    clauses, therom = parse_KB(kb_path)
+    clauses, theorem = parse_KB(kb_path)
 
     KB = KnowledgeBase(clauses)
-    KB.resolution_principle_algorithm(therom)
+    KB.resolution_principle_algorithm(theorem)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Theorm prover")
