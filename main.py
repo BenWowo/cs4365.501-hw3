@@ -7,8 +7,6 @@ from typing import Tuple
 # Literal -> ~Atom | Atom
 # Atom -> True | False | P | Q | ...
 
-LINE_NUMBER = 1
-
 class Literal:
     def __init__(self, atom: str, is_negative: bool):
         self.atom = atom
@@ -71,7 +69,7 @@ class KnowledgeBase:
                 new_clause = self.attempt_resolution(self.clauses[i], self.clauses[j])
                 if new_clause == False:
                     print(f'{self.LINE_NUMBER}. Contradiction {{{i+1}, {j+1}}}')
-                    print('Valid')
+                    print('Valid', end='')
                     return
                 elif not self.is_redundant_clause(new_clause):
                     print(f'{self.LINE_NUMBER}. {new_clause}{{{i+1}, {j+1}}}')
@@ -80,7 +78,7 @@ class KnowledgeBase:
                     self.clause_set.add(new_clause)
                 j += 1
             i += 1
-        print('Fail')
+        print('Fail', end='')
         return
 
     def is_redundant_clause(self, new_clause: Clause) -> bool:
@@ -92,7 +90,7 @@ class KnowledgeBase:
 
         return new_clause in self.clause_set
     
-    def attempt_resolution(self, clause1: Clause, clause2: Clause) -> Union[Clause | bool | None]:
+    def attempt_resolution(self, clause1: Clause, clause2: Clause) -> Union[Clause, bool, None]:
         resolutionAtom = None
         invertedPairs = 0
         for lit1 in clause1.literals:
